@@ -1,0 +1,78 @@
+mutation CreateSeedData @transaction @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public as it's used for seeding the database.") {
+  user_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      username: "demouser1",
+      email: "demouser1@example.com",
+      firstName: "Demo",
+      lastName: "User1",
+      createdAt: "2024-01-01T00:00:00Z"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      username: "demouser2",
+      email: "demouser2@example.com",
+      firstName: "Demo",
+      lastName: "User2",
+      createdAt: "2024-01-02T00:00:00Z"
+    }
+  ])
+  medication_insertMany(data: [
+    {
+      id: "650e8400-e29b-41d4-a716-446655440002",
+      userId: "550e8400-e29b-41d4-a716-446655440000",
+      name: "ExampleMed1",
+      dosage: "100mg",
+      frequency: "Daily",
+      instructions: "Take with food",
+      startDate: "2024-01-01",
+      createdAt: "2024-01-01T00:00:00Z"
+    },
+    {
+      id: "650e8400-e29b-41d4-a716-446655440003",
+      userId: "550e8400-e29b-41d4-a716-446655440001",
+      name: "ExampleMed2",
+      dosage: "50mg",
+      frequency: "Twice Daily",
+      instructions: "Take before meals",
+      startDate: "2024-01-05",
+      createdAt: "2024-01-05T00:00:00Z"
+    }
+  ])
+  reminder_insertMany(data: [
+    {
+      id: "750e8400-e29b-41d4-a716-446655440004",
+      medicationId: "650e8400-e29b-41d4-a716-446655440002",
+      userId: "550e8400-e29b-41d4-a716-446655440000",
+      enabled: true,
+      reminderTime: "2024-01-01T08:00:00Z",
+      createdAt: "2024-01-01T00:00:00Z"
+    },
+    {
+      id: "750e8400-e29b-41d4-a716-446655440005",
+      medicationId: "650e8400-e29b-41d4-a716-446655440003",
+      userId: "550e8400-e29b-41d4-a716-446655440001",
+      enabled: true,
+      reminderTime: "2024-01-05T12:00:00Z",
+      createdAt: "2024-01-05T00:00:00Z"
+    }
+  ])
+ dose_insertMany(data: [
+    {
+      id: "850e8400-e29b-41d4-a716-446655440006",
+      medicationId: "650e8400-e29b-41d4-a716-446655440002",
+      userId: "550e8400-e29b-41d4-a716-446655440000",
+      scheduledTime: "2024-01-01T08:00:00Z",
+      createdAt: "2024-01-01T00:00:00Z",
+      taken: false
+    },
+    {
+      id: "850e8400-e29b-41d4-a716-446655440007",
+      medicationId: "650e8400-e29b-41d4-a716-446655440003",
+      userId: "550e8400-e29b-41d4-a716-446655440001",
+      scheduledTime: "2024-01-05T12:00:00Z",
+      createdAt: "2024-01-05T00:00:00Z",
+      taken: false
+    }
+  ])
+}

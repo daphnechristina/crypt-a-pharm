@@ -1,0 +1,39 @@
+mutation CreateUser @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users.") {
+  user_insert(data: {
+    username: "newuser",
+    email: "newuser@example.com",
+    createdAt_expr: "request.time",
+    firstName: "New",
+    lastName: "User"
+  })
+}
+
+query GetMedicationsForUser @auth(level: USER) {
+  medications(where: {userId: {eq_expr: "auth.uid"}}) {
+    id
+    name
+    dosage
+    frequency
+    startDate
+    endDate
+  }
+}
+
+mutation ToggleReminderEnabled($reminderId: UUID!, $enabled: Boolean!) @auth(level: USER) {
+  reminder_update(
+    key: {id: $reminderId}
+    data: {
+      enabled: $enabled
+    }
+  )
+}
+
+query ListDosesForMedication($medicationId: UUID!) @auth(level: USER) {
+  doses(where: {medicationId: {eq: $medicationId}}) {
+    id
+    scheduledTime
+    actualTakenTime
+    taken
+    notes
+  }
+}
