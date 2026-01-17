@@ -23,7 +23,7 @@ export default function Header({
       <div className="flex items-center gap-2">
         <div className="text-white">
           <h1 className="text-md">Contract Address</h1>
-          <p className="text-xs font-bold text-white">{medicine.contactAddres}</p>
+          <p className="text-xs font-bold text-white">{medicine.contactAddress}</p>
         </div>
       </div>
 
