@@ -4,6 +4,8 @@ import { Figtree } from "next/font/google"
 import { Instrument_Serif } from "next/font/google"
 import "./globals.css"
 
+export const dynamic = 'force-dynamic'
+
 
 const figtree = Figtree({
   subsets: ["latin"],

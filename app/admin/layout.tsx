@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = 'force-dynamic'
+
 import ShaderBackground from "@/components/shader-background"
 
 export default function AdminLayout({
