@@ -4,46 +4,56 @@ import { useState, useEffect } from "react"
 import InstructionsModal from "./instructions-modal"
 import ProgressFlow from "./progress-flow"
 import { medicineById } from "@/app/lib/medicineDatabase"
-import { doc, getDoc, setDoc } from "firebase/firestore"
-import { db } from "@/app/lib/firebase"
 
+// Replace Firebase with API call
 export function useCheckpointInitializer(medicineId: string) {
   useEffect(() => {
     if (!medicineId) return
 
     const init = async () => {
-      const ref = doc(db, "medicines", medicineId)
-      const snap = await getDoc(ref)
+      try {
+        // Fetch current progress data
+        const res = await fetch(`/api/progress?med=${medicineId}`)
+        const data = await res.json()
 
-      // ✅ Show popup if doc does NOT exist OR checkpointCount is missing
-      if (!snap.exists() || snap.data()?.checkpointCount == 0) {
-        const count = Number(
-          prompt("Enter number of teams (minimum 3):")
-        )
+        // ✅ Show popup if checkpointCount is missing or 0
+        if (!data?.checkpointCount || data.checkpointCount === 0) {
+          const count = Number(
+            prompt("Enter number of teams (minimum 3):")
+          )
 
-        if (!count || count < 3) return
+          if (!count || count < 3) return
 
-        const data: any = {
-          checkpointCount: count,
-          factory: false,
-          warehouse: false,
-          godown: false,
-          pharmacy: false,
+          const progressData: any = {
+            checkpointCount: count,
+            factory: false,
+            warehouse: false,
+            godown: false,
+            pharmacy: false,
+          }
+
+          for (let i = 1; i <= count; i++) {
+            progressData[`checkpoint${i}`] = false
+          }
+
+          // Send to API to save
+          await fetch("/api/progress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              medId: medicineId,
+              progress: progressData,
+            }),
+          })
         }
-
-        for (let i = 1; i <= count; i++) {
-          data[`checkpoint${i}`] = false
-        }
-
-        // 🔥 merge:true so we don’t overwrite existing fields
-        await setDoc(ref, data, { merge: true })
+      } catch (err) {
+        console.error("Failed to initialize checkpoint:", err)
       }
     }
 
     init()
   }, [medicineId])
 }
-
 
 export default function HeroContent() {
   const [medicineData, setMedicineData] =
@@ -65,7 +75,6 @@ export default function HeroContent() {
   useCheckpointInitializer(medicineData?.id || "")
 
   if (!medicineData) return null
-
 
   return (
     <main className="absolute inset-0 z-20 flex items-center justify-center p-8">
@@ -135,9 +144,6 @@ export default function HeroContent() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-4 flex-wrap justify-center mt-8">
-          {/*<button className="px-8 py-3 rounded-full bg-transparent border border-white/30 text-white font-normal text-xs transition-all duration-200 hover:bg-white/10 hover:border-white/50 cursor-pointer">
-            Previous
-          </button>*/}
           <button
             onClick={() => setIsModalOpen(true)}
             className="px-8 py-3 rounded-full bg-white text-black font-normal text-xs transition-all duration-200 hover:bg-white/90 cursor-pointer"

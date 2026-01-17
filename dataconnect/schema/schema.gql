@@ -1,9 +1,8 @@
 type User @table {
-  username: String!
+  displayName: String!
   createdAt: Timestamp!
   email: String
-  firstName: String
-  lastName: String
+  photoUrl: String
 }
 
 type Medication @table {
@@ -11,27 +10,22 @@ type Medication @table {
   name: String!
   dosage: String!
   frequency: String!
-  startDate: Date!
-  createdAt: Timestamp!
+  notes: String
   instructions: String
+  refillReminderDays: Int
+}
+
+type Schedule @table {
+  medication: Medication!
+  timeOfDay: String!
+  dayOfWeek: String
   endDate: Date
 }
 
-type Dose @table {
-  user: User!
+type DoseRecord @table {
   medication: Medication!
-  scheduledTime: Timestamp!
-  createdAt: Timestamp!
-  actualTakenTime: Timestamp
+  user: User!
+  recordedAt: Timestamp!
+  status: String!
   notes: String
-  taken: Boolean
-}
-
-type Reminder @table {
-  user: User!
-  medication: Medication!
-  reminderTime: Timestamp!
-  enabled: Boolean!
-  createdAt: Timestamp!
-  notificationSound: String
 }

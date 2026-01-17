@@ -1,31 +1,47 @@
+// app/api/progress/route.ts
 import { NextResponse } from "next/server"
-import { getFirestore } from "firebase/firestore"
-import { app } from "../../lib/firebase"
-import { doc, getDoc, setDoc } from "firebase/firestore"
-
-const db = getFirestore(app)
+import { getProgress, setProgress, updateCheckpointCount } from "@/app/lib/database"
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const medId = searchParams.get("med")
 
-  if (!medId) return NextResponse.json({ error: "Missing med" })
+  if (!medId) {
+    return NextResponse.json({ error: "Missing med" }, { status: 400 })
+  }
 
-  const ref = doc(db, "progress", medId)
-  const snap = await getDoc(ref)
-
-  return NextResponse.json(
-    snap.exists()
-      ? snap.data()
-      : { factory: false, warehouse: false, transport: false, hospital: false }
-  )
+  try {
+    const progress = await getProgress(medId)
+    return NextResponse.json(progress)
+  } catch (err) {
+    console.error("Failed to fetch progress:", err)
+    return NextResponse.json({ error: "Failed to fetch progress" }, { status: 500 })
+  }
 }
 
 export async function POST(req: Request) {
-  const body = await req.json()
-  const { medId, progress } = body
+  try {
+    const body = await req.json()
+    const { medId, progress } = body
 
-  await setDoc(doc(db, "progress", medId), progress)
+    if (!medId || !progress) {
+      return NextResponse.json(
+        { error: "Missing medId or progress" },
+        { status: 400 }
+      )
+    }
 
-  return NextResponse.json({ success: true })
+    // Handle checkpoint count updates
+    if (progress.checkpointCount !== undefined) {
+      await updateCheckpointCount(medId, progress.checkpointCount)
+    }
+
+    // Update progress
+    await setProgress(medId, progress)
+
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error("Failed to save progress:", err)
+    return NextResponse.json({ error: "Failed to save progress" }, { status: 500 })
+  }
 }

@@ -1,77 +1,135 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { listenToMedicine, updateStep } from "@/app/lib/medicineService"
+import { useState, useEffect, useCallback } from "react"
 
 type Step = {
-  label: string
   key: string
+  label: string
 }
 
 export default function ProgressFlow({ medicineId }: { medicineId: string }) {
   const [steps, setSteps] = useState<Step[]>([])
-  const [completedSteps, setCompletedSteps] = useState<Record<number, boolean>>(
-    {}
-  )
+  const [completedSteps, setCompletedSteps] = useState<Record<number, boolean>>({})
   const [isMounted, setIsMounted] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  // 🔴 REAL-TIME LISTENER (Firebase)
-  useEffect(() => {
-    const unsubscribe = listenToMedicine(medicineId, (data) => {
-      const count = Math.max(3, data?.checkpointCount ?? 3)
+  // Build step list based on checkpoint count
+  const buildSteps = useCallback((count: number): Step[] => {
+    const count_normalized = Math.max(3, count || 3)
 
-      let activeSteps: Step[] = []
+    if (count_normalized === 3) {
+      return [
+        { key: "factory", label: "Factory" },
+        { key: "warehouse", label: "Warehouse" },
+        { key: "pharmacy", label: "Pharmacy" },
+      ]
+    } else if (count_normalized === 4) {
+      return [
+        { key: "factory", label: "Factory" },
+        { key: "warehouse", label: "Warehouse" },
+        { key: "godown", label: "Godown" },
+        { key: "pharmacy", label: "Pharmacy" },
+      ]
+    } else if (count_normalized === 5) {
+      return [
+        { key: "factory", label: "Factory" },
+        { key: "checkpoint1", label: "Checkpoint 1" },
+        { key: "warehouse", label: "Warehouse" },
+        { key: "checkpoint2", label: "Checkpoint 2" },
+        { key: "pharmacy", label: "Pharmacy" },
+      ]
+    } else {
+      return [
+        { key: "factory", label: "Factory" },
+        { key: "checkpoint1", label: "Checkpoint 1" },
+        { key: "warehouse", label: "Warehouse" },
+        { key: "checkpoint2", label: "Checkpoint 2" },
+        { key: "godown", label: "Godown" },
+        { key: "pharmacy", label: "Pharmacy" },
+      ]
+    }
+  }, [])
 
-      if (count === 3) {
-        activeSteps = [
-          { label: "Factory", key: "factory" },
-          { label: "Warehouse", key: "warehouse" },
-          { label: "Pharmacy", key: "pharmacy" },
-        ]
-      } else if (count === 4) {
-        activeSteps = [
-          { label: "Factory", key: "factory" },
-          { label: "Warehouse", key: "warehouse" },
-          { label: "Godown", key: "godown" },
-          { label: "Pharmacy", key: "pharmacy" },
-        ]
-      } else if (count === 5) {
-        activeSteps = [
-          { label: "Factory", key: "factory" },
-          { label: "Checkpoint 1", key: "checkpoint1" },
-          { label: "Warehouse", key: "warehouse" },
-          { label: "Checkpoint 2", key: "checkpoint2" },
-          { label: "Pharmacy", key: "pharmacy" },
-        ]
-      } else {
-        // 6 or more → full flow
-        activeSteps = [
-          { label: "Factory", key: "factory" },
-          { label: "Checkpoint 1", key: "checkpoint1" },
-          { label: "Warehouse", key: "warehouse" },
-          { label: "Checkpoint 2", key: "checkpoint2" },
-          { label: "Godown", key: "godown" },
-          { label: "Pharmacy", key: "pharmacy" },
-        ]
+  const fetchProgress = useCallback(async () => {
+    if (!medicineId) return
+
+    try {
+      const res = await fetch(`/api/progress?med=${medicineId}`, {
+        cache: "no-store",
+      })
+
+      if (!res.ok) {
+        console.error("Failed to fetch progress:", res.status)
+        return
       }
 
+      const data = await res.json()
+      if (!data) return
+
+      const activeSteps = buildSteps(data.checkpointCount)
+
       const mapped: Record<number, boolean> = {}
-      activeSteps.forEach((step, index) => {
-        mapped[index] = Boolean(data?.[step.key])
+      activeSteps.forEach((step, i) => {
+        mapped[i] = Boolean(data[step.key])
       })
 
       setSteps(activeSteps)
       setCompletedSteps(mapped)
       setIsMounted(true)
-    })
+    } catch (err) {
+      console.error("Failed to fetch progress:", err)
+    }
+  }, [medicineId, buildSteps])
 
-    return () => unsubscribe()
-  }, [medicineId])
+  // Poll every 2 seconds
+  useEffect(() => {
+    fetchProgress()
+    const interval = setInterval(fetchProgress, 2000)
+    return () => clearInterval(interval)
+  }, [fetchProgress])
 
-  // 🔴 UPDATE BACKEND WHEN USER CLICKS
+  // Mark step as complete
   const toggleStep = async (index: number) => {
+    if (isLoading) return
+
     const stepKey = steps[index].key
-    await updateStep(medicineId, stepKey)
+
+    // Only allow marking next sequential step
+    if (index > 0 && !completedSteps[index - 1]) {
+      alert("Complete previous steps first")
+      return
+    }
+
+    // Don't allow unmarking
+    if (completedSteps[index]) {
+      alert("Cannot undo completed steps")
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const res = await fetch("/api/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          medId: medicineId,
+          progress: { [stepKey]: true },
+        }),
+      })
+
+      if (!res.ok) {
+        console.error("Failed to update progress:", res.status)
+        return
+      }
+
+      // Refresh after update
+      await fetchProgress()
+    } catch (err) {
+      console.error("Failed to toggle step:", err)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (!isMounted) return null
@@ -79,20 +137,22 @@ export default function ProgressFlow({ medicineId }: { medicineId: string }) {
   return (
     <div className="fixed right-4 top-1/2 -translate-y-1/2 hidden lg:flex flex-col items-center justify-center gap-2 z-30">
       {steps.map((step, index) => (
-        <div key={index} className="flex flex-col items-center gap-1">
+        <div key={step.key} className="flex flex-col items-center gap-1">
           <div
             onClick={() => toggleStep(index)}
-            className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs border border-white/30 transition-all duration-300 cursor-pointer hover:border-white/60 ${
+            className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs border transition-all duration-300 ${
               completedSteps[index]
-                ? "bg-green-400/30 border-green-400/60 text-green-300"
-                : "bg-white/10 border-white/30 text-white/60 hover:bg-white/15"
+                ? "bg-green-400/30 border-green-400/60 text-green-300 cursor-not-allowed"
+                : "bg-white/10 border-white/30 text-white/60 cursor-pointer hover:bg-white/15 hover:border-white/60"
             }`}
-            style={{
-              filter: "url(#glass-effect)",
-            }}
-            title={`${
-              completedSteps[index] ? "Completed" : "Incomplete"
-            } - Click to toggle`}
+            style={{ filter: "url(#glass-effect)" }}
+            title={
+              completedSteps[index]
+                ? "Completed"
+                : index > 0 && !completedSteps[index - 1]
+                  ? "Complete previous step first"
+                  : "Click to mark complete"
+            }
           >
             {completedSteps[index] ? "✓" : index + 1}
           </div>
@@ -108,9 +168,7 @@ export default function ProgressFlow({ medicineId }: { medicineId: string }) {
           {index < steps.length - 1 && (
             <div
               className={`w-0.5 h-6 transition-all duration-300 ${
-                completedSteps[index]
-                  ? "bg-green-400/40"
-                  : "bg-white/10"
+                completedSteps[index] ? "bg-green-400/40" : "bg-white/10"
               }`}
             />
           )}

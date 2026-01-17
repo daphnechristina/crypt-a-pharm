@@ -1,5 +1,9 @@
-// Medicine database with detailed information
-export const medicineDatabase = {
+// scripts/seed-medicines.js
+const fs = require("fs").promises
+const path = require("path")
+
+// Medicine database
+const medicineDatabase = {
   aspirin: {
     id: "MED-001",
     name: "Aspirin",
@@ -120,17 +124,39 @@ export const medicineDatabase = {
     humidity: "30–50%",
     contactAddress: "0x373948600f67B1325614FF123491F5086986D6e3",
   },
-} as const
+}
 
-// Type helpers
-export type MedicineKey = keyof typeof medicineDatabase
-export type MedicineData = (typeof medicineDatabase)[MedicineKey]
+async function seedMedicines() {
+  try {
+    const dbDir = path.join(process.cwd(), ".data")
+    const medicinesFile = path.join(dbDir, "medicines.json")
 
-// Create a map by ID for easy lookup (used by components)
-export const medicineById = Object.values(medicineDatabase).reduce(
-  (acc, med) => {
-    acc[med.id] = med
-    return acc
-  },
-  {} as Record<string, typeof medicineDatabase[keyof typeof medicineDatabase]>
-)
+    // Create .data directory if it doesn't exist
+    await fs.mkdir(dbDir, { recursive: true })
+
+    // Convert database to ID-indexed format
+    const medicinesData = {}
+    Object.entries(medicineDatabase).forEach(([key, medicine]) => {
+      medicinesData[medicine.id] = {
+        id: medicine.id,
+        name: medicine.name,
+        description: medicine.description,
+        temperature: medicine.temperature,
+        humidity: medicine.humidity,
+        contactAddress: medicine.contactAddress,
+      }
+    })
+
+    // Write to file
+    await fs.writeFile(medicinesFile, JSON.stringify(medicinesData, null, 2))
+
+    console.log("✅ Medicines seeded successfully!")
+    console.log(`📍 Location: ${medicinesFile}`)
+    console.log(`📊 Total medicines: ${Object.keys(medicinesData).length}`)
+  } catch (err) {
+    console.error("❌ Failed to seed medicines:", err.message)
+    process.exit(1)
+  }
+}
+
+seedMedicines()
