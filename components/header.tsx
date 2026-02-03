@@ -19,13 +19,21 @@ export default function Header({
   if (!medicine) return null
   return (
     <header className="relative z-20 flex items-center justify-between p-6">
-      {/* Logo and Branding */}
-      <div className="flex items-center gap-2">
-        <div className="text-white">
-          <h1 className="text-md">Contract Address</h1>
-          <p className="text-xs font-bold text-white">{medicine.contactAddress}</p>
+        {/* Logo and Branding Container */}
+        <div className="flex items-center justify-between w-full px-4"> 
+          {/* Left Side: Text Details */}
+          <div className="text-white">
+            <h1 className="text-md">Contract Address</h1>
+            <p className="text-xs font-bold text-white">{medicine.contactAddress}</p>
+          </div>
+
+          {/* Right Side: Logo */}
+          <img 
+            src="/embs.png" 
+            alt="IEEE EMBS logo" 
+            className="w-24 brightness-200" 
+          />
         </div>
-      </div>
 
      
       {/*<nav className="flex items-center space-x-2">

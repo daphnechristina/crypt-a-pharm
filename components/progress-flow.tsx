@@ -7,7 +7,12 @@ type Step = {
   label: string
 }
 
-export default function ProgressFlow({ medicineId }: { medicineId: string }) {
+interface ProgressFlowProps {
+  medicineId: string
+  checkpointCount: number
+}
+
+export default function ProgressFlow({ medicineId, checkpointCount }: ProgressFlowProps) {
   const [steps, setSteps] = useState<Step[]>([])
   const [completedSteps, setCompletedSteps] = useState<Record<number, boolean>>({})
   const [isMounted, setIsMounted] = useState(false)
@@ -66,7 +71,8 @@ export default function ProgressFlow({ medicineId }: { medicineId: string }) {
       const data = await res.json()
       if (!data) return
 
-      const activeSteps = buildSteps(data.checkpointCount)
+      // Use the checkpointCount passed as prop, not from API response
+      const activeSteps = buildSteps(checkpointCount)
 
       const mapped: Record<number, boolean> = {}
       activeSteps.forEach((step, i) => {
@@ -79,7 +85,7 @@ export default function ProgressFlow({ medicineId }: { medicineId: string }) {
     } catch (err) {
       console.error("Failed to fetch progress:", err)
     }
-  }, [medicineId, buildSteps])
+  }, [medicineId, checkpointCount, buildSteps])
 
   // Poll every 2 seconds
   useEffect(() => {

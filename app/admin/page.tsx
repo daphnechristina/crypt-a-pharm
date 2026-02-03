@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import Image from "next/image"
 
-const STEPS = [
+const ALL_STEPS = [
   { key: "factory", label: "Factory" },
   { key: "checkpoint1", label: "Checkpoint 1" },
   { key: "warehouse", label: "Warehouse" },
@@ -45,9 +45,16 @@ export default function ModeratorDashboard() {
     return () => clearInterval(interval)
   }, [fetchMedicines])
 
+  // Get steps based on actual checkpoint_count from database
   function getStepsForCount(count: number) {
-    const normalized = count || 6
-    if (normalized <= 3) {
+    // If checkpoint_count is 0 or not set, show "Not Configured"
+    if (!count || count === 0) {
+      return []
+    }
+
+    const normalized = count
+
+    if (normalized === 3) {
       return ["factory", "warehouse", "pharmacy"]
     }
     if (normalized === 4) {
@@ -56,15 +63,23 @@ export default function ModeratorDashboard() {
     if (normalized === 5) {
       return ["factory", "checkpoint1", "warehouse", "checkpoint2", "pharmacy"]
     }
-    return ["factory", "checkpoint1", "warehouse", "checkpoint2", "godown", "pharmacy"]
+    if (normalized === 6) {
+      return ["factory", "checkpoint1", "warehouse", "checkpoint2", "godown", "pharmacy"]
+    }
+
+    return []
   }
 
   const getCurrentStep = (med: any) => {
-    const steps = getStepsForCount(med.checkpointCount)
+    const steps = getStepsForCount(med.checkpoint_count)
+
+    if (steps.length === 0) {
+      return "Not Configured"
+    }
 
     for (let i = steps.length - 1; i >= 0; i--) {
       if (med[steps[i]]) {
-        const step = STEPS.find(s => s.key === steps[i])
+        const step = ALL_STEPS.find(s => s.key === steps[i])
         return step?.label ?? "Unknown"
       }
     }
@@ -72,7 +87,7 @@ export default function ModeratorDashboard() {
   }
 
   const getCompletedCount = (med: any) => {
-    const steps = getStepsForCount(med.checkpointCount)
+    const steps = getStepsForCount(med.checkpoint_count)
     return steps.filter(key => med[key]).length
   }
 
@@ -115,39 +130,53 @@ export default function ModeratorDashboard() {
 
         {medicines.length === 0 ? (
           <div className="text-center text-white/60 py-12">
-            <p>No medicines found. Run the seed script: <code className="bg-white/10 px-2 py-1 rounded">npm run seed</code></p>
+            <p>No medicines found.</p>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {medicines.map(med => {
+              const steps = getStepsForCount(med.checkpoint_count)
               const completed = getCompletedCount(med)
-              const activeSteps = getStepsForCount(med.checkpointCount)
-              const percent = activeSteps.length > 0 ? (completed / activeSteps.length) * 100 : 0
+              const percent = steps.length > 0 ? (completed / steps.length) * 100 : 0
               const currentStep = getCurrentStep(med)
+              const isConfigured = med.checkpoint_count && med.checkpoint_count > 0
 
               return (
                 <Link
                   key={med.id}
-                  href={`/med?med=${med.id}`}
+                  href={`/med?med=MED-00${med.id}`}
                   className="block"
                 >
                   <div
                     className="rounded-xl border border-white/10 bg-white/5 p-5 shadow-lg backdrop-blur
                                transition-all hover:bg-white/10 hover:scale-[1.02]"
                   >
+                    {/* Header: ID and Status */}
                     <div className="flex items-center justify-between mb-3">
                       <h2 className="text-lg font-semibold">{med.id}</h2>
                       <span
                         className={`text-xs px-2 py-1 rounded-full ${
-                          percent === 100
-                            ? "bg-green-500/20 text-green-300"
-                            : "bg-yellow-500/20 text-yellow-300"
+                          !isConfigured
+                            ? "bg-gray-500/20 text-gray-300"
+                            : percent === 100
+                              ? "bg-green-500/20 text-green-300"
+                              : "bg-yellow-500/20 text-yellow-300"
                         }`}
                       >
-                        {percent === 100 ? "Completed" : "In Transit"}
+                        {!isConfigured ? "Not Configured" : percent === 100 ? "Completed" : "In Transit"}
                       </span>
                     </div>
 
+                    {/* Checkpoint Count Badge */}
+                    {isConfigured && (
+                      <div className="mb-2">
+                        <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
+                          {med.checkpoint_count} Checkpoints
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Current Location */}
                     <p className="text-sm text-white/70 mb-2">
                       📍 Current location:
                       <span className="ml-1 font-medium text-white">
@@ -155,30 +184,40 @@ export default function ModeratorDashboard() {
                       </span>
                     </p>
 
-                    <div className="w-full h-2 bg-white/10 rounded overflow-hidden mb-3">
-                      <div
-                        className="h-full bg-green-400 transition-all duration-500"
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
+                    {/* Progress Bar */}
+                    {isConfigured && (
+                      <div className="w-full h-2 bg-white/10 rounded overflow-hidden mb-3">
+                        <div
+                          className="h-full bg-green-400 transition-all duration-500"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                    )}
 
-                    <div className="flex flex-wrap gap-2">
-                      {getStepsForCount(med.checkpointCount).map(key => {
-                        const step = STEPS.find(s => s.key === key)!
-                        return (
-                          <span
-                            key={step.key}
-                            className={`text-xs px-2 py-1 rounded ${
-                              med[step.key]
-                                ? "bg-green-400/20 text-green-300"
-                                : "bg-white/10 text-white/40"
-                            }`}
-                          >
-                            {step.label}
-                          </span>
-                        )
-                      })}
-                    </div>
+                    {/* Step Tags */}
+                    {isConfigured ? (
+                      <div className="flex flex-wrap gap-2">
+                        {getStepsForCount(med.checkpoint_count).map(key => {
+                          const step = ALL_STEPS.find(s => s.key === key)!
+                          return (
+                            <span
+                              key={step.key}
+                              className={`text-xs px-2 py-1 rounded ${
+                                med[step.key]
+                                  ? "bg-green-400/20 text-green-300"
+                                  : "bg-white/10 text-white/40"
+                              }`}
+                            >
+                              {step.label}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-white/50 italic">
+                        Click to configure checkpoints
+                      </p>
+                    )}
 
                     <p className="mt-4 text-xs text-white/50">
                       Click to view medicine details →
@@ -189,6 +228,9 @@ export default function ModeratorDashboard() {
             })}
           </div>
         )}
+        <p className="max-w-xl mt-5 items-center text-white/70 text-lg mb-8">
+          Made with ❤️ by IEEE EMBS
+        </p>
       </section>
     </div>
   )
